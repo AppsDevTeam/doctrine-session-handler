@@ -77,18 +77,18 @@ class Handler implements \SessionHandlerInterface {
 	{
 		$session = $this->getSession($session_id);
 
-		if (!$session) {
-			$lifetime = ini_get("session.gc_maxlifetime");
-			$expiration = $lifetime ? ($lifetime / 60) : 15;
+		$lifetime = ini_get("session.gc_maxlifetime");
+		$expiration = $lifetime ? ($lifetime / 60) : 15;
 
+		if (!$session) {
 			$session = new $this->entityClass;
 			$session->createdAt = new \DateTime;
-			$session->expiresAt = new \DateTime("+$expiration minutes");
 			$session->sessionId = $session_id;
 
 			$this->em->persist($session);
 		}
 
+		$session->expiresAt = new \DateTime("+$expiration minutes");
 		$session->data = $session_data;
 
 		$this->em->flush($session);
