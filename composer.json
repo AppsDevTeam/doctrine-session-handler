@@ -1,0 +1,21 @@
+{
+  "name": "adt/doctrine-session-handler",
+  "description": "Doctrine session handler",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "AppsDevTeam",
+      "email": "hello@appsdevteam.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=7.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "ADT\\DoctrineSessionHandler\\": "src/"
+    }
+  }
+}
