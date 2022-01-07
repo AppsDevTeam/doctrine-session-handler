@@ -101,11 +101,13 @@ class Handler implements \SessionHandlerInterface {
 	 * @return Session|NULL
 	 * @throws \Doctrine\ORM\NonUniqueResultException
 	 */
-	protected function getSession($session_id) {
+	protected function getSession($session_id) 
+	{
 		return $this->em->createQueryBuilder()
 			->select("e")
 			->from($this->entityClass, "e")
-			->andWhere("e.sessionId = :id", $session_id)
+			->andWhere("e.sessionId = :id")
+			->setParameter('id', $session_id)
 			->getQuery()
 			->getOneOrNullResult();
 	}
