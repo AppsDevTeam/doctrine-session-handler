@@ -5,18 +5,14 @@ namespace ADT\DoctrineSessionHandler;
 use ADT\DoctrineSessionHandler\Traits\Session;
 use Doctrine\ORM\EntityManager;
 
-class Handler implements \SessionHandlerInterface {
+class Handler implements \SessionHandlerInterface 
+{
+	protected EntityManager $em;
 
-	/** @var EntityManager */
-	protected $em;
+	protected string $entityClass;
 
-	/** string */
-	protected $entityClass;
-
-	/**
-	 * @param EntityManager $em
-	 */
-	public function __construct($entityClass, EntityManager $em) {
+	public function __construct(string $entityClass, EntityManager $em) 
+	{
 		$this->entityClass = $entityClass;
 		$this->em = $em;
 	}
@@ -24,15 +20,17 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function close() {
+	public function close(): bool
+	{
 		return TRUE;
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function destroy($session_id) {
-		if ($session = $this->getSession($session_id)) {
+	public function destroy(string $id): bool
+	{
+		if ($session = $this->getSession($id)) {
 			$this->em->remove($session);
 			$this->em->flush($session);
 		}
@@ -43,7 +41,8 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function gc($maxlifetime) {
+	public function gc(int $max_lifetime): int|false
+	{
 		$this->em->createQueryBuilder()
 			->delete($this->entityClass, "e")
 			->andWhere("e.expiresAt < :now", new \DateTime)
@@ -56,7 +55,7 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function open($save_path, $name)
+	public function open(string $path, string $name): bool
 	{
 		return TRUE;
 	}
@@ -64,18 +63,18 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function read($session_id)
+	public function read(string $id): string|false
 	{
-		$session = $this->getSession($session_id);
+		$session = $this->getSession($id);
 		return $session->data ?? "";
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function write($session_id, $session_data)
+	public function write(string $id, string $data): bool
 	{
-		$session = $this->getSession($session_id);
+		$session = $this->getSession($id);
 
 		$lifetime = ini_get("session.gc_maxlifetime");
 		$expiration = $lifetime ? ($lifetime / 60) : 15;
@@ -83,13 +82,13 @@ class Handler implements \SessionHandlerInterface {
 		if (!$session) {
 			$session = new $this->entityClass;
 			$session->createdAt = new \DateTime;
-			$session->sessionId = $session_id;
+			$session->sessionId = $id;
 
 			$this->em->persist($session);
 		}
 
 		$session->expiresAt = new \DateTime("+$expiration minutes");
-		$session->data = $session_data;
+		$session->data = $data;
 
 		$this->em->flush($session);
 
@@ -97,17 +96,15 @@ class Handler implements \SessionHandlerInterface {
 	}
 
 	/**
-	 * @param $session_id
-	 * @return Session|NULL
 	 * @throws \Doctrine\ORM\NonUniqueResultException
 	 */
-	protected function getSession($session_id) 
+	protected function getSession(string $id): ?SessionInterface
 	{
 		return $this->em->createQueryBuilder()
 			->select("e")
 			->from($this->entityClass, "e")
 			->andWhere("e.sessionId = :id")
-			->setParameter('id', $session_id)
+			->setParameter('id', $id)
 			->getQuery()
 			->getOneOrNullResult();
 	}
