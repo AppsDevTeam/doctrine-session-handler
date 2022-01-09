@@ -46,7 +46,8 @@ class Handler implements \SessionHandlerInterface {
 	public function gc($maxlifetime) {
 		$this->em->createQueryBuilder()
 			->delete($this->entityClass, "e")
-			->andWhere("e.expiresAt < :now", new \DateTime)
+			->andWhere("e.expiresAt < :now")
+			->setParameter('now', new \DateTime)
 			->getQuery()
 			->execute();
 
