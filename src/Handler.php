@@ -3,15 +3,15 @@
 namespace ADT\DoctrineSessionHandler;
 
 use ADT\DoctrineSessionHandler\Traits\Session;
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 
 class Handler implements \SessionHandlerInterface 
 {
-	protected EntityManager $em;
+	protected EntityManagerInterface $em;
 
 	protected string $entityClass;
 
-	public function __construct(string $entityClass, EntityManager $em) 
+	public function __construct(string $entityClass, EntityManagerInterface $em)
 	{
 		$this->entityClass = $entityClass;
 		$this->em = $em;
