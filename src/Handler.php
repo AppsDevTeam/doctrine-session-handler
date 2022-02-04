@@ -4,21 +4,19 @@ namespace ADT\DoctrineSessionHandler;
 
 use ADT\DoctrineSessionHandler\Traits\Session;
 use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 
 class Handler implements \SessionHandlerInterface {
 
-	/** @var EntityManagerInterface */
-	protected $em;
+	protected EntityManagerInterface $em;
 
-	/** string */
-	protected $entityClass;
+	protected string $entityClass;
 
 	/**
-	 * @param EntityManager $em
+	 * @param EntityManagerInterface $em
 	 */
-	public function __construct($entityClass, EntityManagerInterface $em) {
+	public function __construct($entityClass, EntityManagerInterface $em)
+	{
 		$this->entityClass = $entityClass;
 		$this->em = $em;
 	}
@@ -26,14 +24,16 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function close() {
+	public function close()
+	{
 		return TRUE;
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function destroy($session_id) {
+	public function destroy($session_id)
+	{
 		if ($this->getSession($session_id) !== null) {
 			$this->em->createQueryBuilder()
 				->delete($this->entityClass, "e")
@@ -49,7 +49,8 @@ class Handler implements \SessionHandlerInterface {
 	/**
 	 * @inheritDoc
 	 */
-	public function gc($maxlifetime) {
+	public function gc($maxlifetime)
+	{
 		$this->em->createQueryBuilder()
 			->delete($this->entityClass, "e")
 			->andWhere("e.expiresAt < :now")
@@ -138,7 +139,7 @@ class Handler implements \SessionHandlerInterface {
 						->getOneOrNullResult();
 	}
 
-	private function getTableName()
+	private function getTableName(): string
 	{
 		return $this->em->getClassMetadata($this->entityClass)->getTableName();
 	}

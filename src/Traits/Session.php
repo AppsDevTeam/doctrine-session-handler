@@ -11,27 +11,27 @@ trait Session {
 	 *
 	 * @ORM\Column(type="string", nullable=false)
 	 */
-	public $sessionId;
+	public string $sessionId;
 
 	/**
 	 * @var \DateTime
 	 *
 	 * @ORM\Column(type="datetime", nullable=false)
 	 */
-	public $createdAt;
+	public \DateTime $createdAt;
 
 	/**
 	 * @var \DateTime
 	 *
 	 * @ORM\Column(type="datetime", nullable=false)
 	 */
-	public $expiresAt;
+	public \DateTime $expiresAt;
 
 	/**
-	 * @var string
+	 * @var string|null
 	 *
 	 * @ORM\Column(type="text", nullable=true)
 	 */
-	public $data;
+	public ?string $data;
 
 }
