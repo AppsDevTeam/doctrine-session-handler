@@ -11,7 +11,8 @@ Use `columns={<column_name>}` according to your naming strategy in `uniqueConstr
 
 namespace App\Entity;
 
-use ADT\DoctrineSessionHandler\Traits\Session;
+use ADT\DoctrineSessionHandler\SessionInterface;
+use ADT\DoctrineSessionHandler\SessionTrait;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -22,9 +23,9 @@ use Doctrine\ORM\Mapping as ORM;
  * )
  * @ORM\Entity
  */
-class SessionStorage extends BaseEntity {
+class SessionStorage extends BaseEntity implements SessionInterface {
 
-	use Session;
+	use SessionTrait;
 
 	/**
 	 * @var integer
