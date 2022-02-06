@@ -2,28 +2,27 @@
 
 namespace ADT\DoctrineSessionHandler;
 
-use ADT\DoctrineSessionHandler\SessionInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 trait SessionTrait
 {
 	/**
-	 * @ORM\Column(name="sessionId", type="string", nullable=false)
+	 * @ORM\Column(type="string", nullable=false)
 	 */
 	public string $sessionId;
 
 	/**
-	 * @ORM\Column(name="createdAt", type="datetime", nullable=false)
+	 * @ORM\Column(type="datetime", nullable=false)
 	 */
 	public \DateTime $createdAt;
 
 	/**
-	 * @ORM\Column(name="expires_at", type="datetime", nullable=false)
+	 * @ORM\Column(type="datetime", nullable=false)
 	 */
 	public \DateTime $expiresAt;
 
 	/**
-	 * @ORM\Column(name="data", type="text", nullable=true)
+	 * @ORM\Column(type="text", nullable=true)
 	 */
 	public string $data;
 

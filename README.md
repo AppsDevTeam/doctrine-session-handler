@@ -4,26 +4,28 @@
 composer require adt/doctrine-session-handler
 ```
 
+Use `columns={<column_name>}` according to your naming strategy in `uniqueConstraints` definition.
+
 ```php
 <?php
 
 namespace App\Entity;
 
-use ADT\DoctrineSessionHandler\Traits\Session;
+use ADT\DoctrineSessionHandler\SessionInterface;
+use ADT\DoctrineSessionHandler\SessionTrait;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table(
- *		name="session_storage",
  *		uniqueConstraints={
- *			@ORM\UniqueConstraint(name="sessionId", columns={"sessionId"})
+ *			@ORM\UniqueConstraint(columns={"sessionId"})
  * 		}
  * )
  * @ORM\Entity
  */
-class SessionStorage extends BaseEntity {
+class SessionStorage extends BaseEntity implements SessionInterface {
 
-	use Session;
+	use SessionTrait;
 
 	/**
 	 * @var integer

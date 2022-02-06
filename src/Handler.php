@@ -3,6 +3,7 @@
 namespace ADT\DoctrineSessionHandler;
 
 use ADT\DoctrineSessionHandler\Traits\Session;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 
 class Handler implements \SessionHandlerInterface 
@@ -30,9 +31,13 @@ class Handler implements \SessionHandlerInterface
 	 */
 	public function destroy(string $id): bool
 	{
-		if ($session = $this->getSession($id)) {
-			$this->em->remove($session);
-			$this->em->flush($session);
+		if ($this->getSession($id) !== null) {
+			$this->em->createQueryBuilder()
+				->delete($this->entityClass, "e")
+				->andWhere('e.sessionId = :id')
+				->setParameter('id', $id)
+				->getQuery()
+				->execute();
 		}
 
 		return TRUE;
@@ -81,17 +86,35 @@ class Handler implements \SessionHandlerInterface
 		$expiration = $lifetime ? ($lifetime / 60) : 15;
 
 		if (!$session) {
-			$session = new $this->entityClass;
-			$session->createdAt = new \DateTime;
-			$session->sessionId = $id;
+			$metadata = $this->em->getClassMetadata($this->entityClass);
 
-			$this->em->persist($session);
+			$this->em->getConnection()->createQueryBuilder()
+				->insert($this->getTableName(), "e")
+				->values(
+					[
+						$metadata->getColumnName('createdAt') => '?',
+						$metadata->getColumnName('expiresAt') => '?',
+						$metadata->getColumnName('sessionId') => '?',
+						$metadata->getColumnName('data') => '?'
+					]
+				)
+				->setParameter(0, (new \DateTime()), Types::DATETIME_MUTABLE)
+				->setParameter(1, (new \DateTime("+$expiration minutes")), Types::DATETIME_MUTABLE)
+				->setParameter(2, $id)
+				->setParameter(3, $data)
+				->execute();
+		} else {
+			$this->em->createQueryBuilder()
+				->update($this->entityClass, "e")
+				->set("e.expiresAt", '?1')
+				->set("e.data", '?2')
+				->where("e.sessionId = :sessionId")
+				->setParameter(1, new \DateTime("+$expiration minutes"))
+				->setParameter(2, $data)
+				->setParameter("sessionId", $id)
+				->getQuery()
+				->execute();
 		}
-
-		$session->expiresAt = new \DateTime("+$expiration minutes");
-		$session->data = $data;
-
-		$this->em->flush($session);
 
 		return TRUE;
 	}
@@ -108,5 +131,10 @@ class Handler implements \SessionHandlerInterface
 			->setParameter('id', $id)
 			->getQuery()
 			->getOneOrNullResult();
+	}
+
+	private function getTableName(): string
+	{
+		return $this->em->getClassMetadata($this->entityClass)->getTableName();
 	}
 }
