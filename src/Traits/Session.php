@@ -9,29 +9,29 @@ trait Session {
 	/**
 	 * @var string
 	 *
-	 * @ORM\Column(name="sessionId", type="string", nullable=false)
+	 * @ORM\Column(type="string", nullable=false)
 	 */
-	public $sessionId;
+	public string $sessionId;
 
 	/**
 	 * @var \DateTime
 	 *
-	 * @ORM\Column(name="createdAt", type="datetime", nullable=false)
+	 * @ORM\Column(type="datetime", nullable=false)
 	 */
-	public $createdAt;
+	public \DateTime $createdAt;
 
 	/**
 	 * @var \DateTime
 	 *
-	 * @ORM\Column(name="expires_at", type="datetime", nullable=false)
+	 * @ORM\Column(type="datetime", nullable=false)
 	 */
-	public $expiresAt;
+	public \DateTime $expiresAt;
 
 	/**
-	 * @var string
+	 * @var string|null
 	 *
-	 * @ORM\Column(name="data", type="text", nullable=true)
+	 * @ORM\Column(type="text", nullable=true)
 	 */
-	public $data;
+	public ?string $data;
 
 }
