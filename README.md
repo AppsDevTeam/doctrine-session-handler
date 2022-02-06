@@ -6,7 +6,6 @@ composer require adt/doctrine-session-handler
 
 Use `columns={<column_name>}` according to your naming strategy in `uniqueConstraints` definition.
 
-
 ```php
 <?php
 
@@ -17,9 +16,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table(
- *		name="session_storage",
  *		uniqueConstraints={
- *			@ORM\UniqueConstraint(name="sessionId", columns={"sessionId"})
+ *			@ORM\UniqueConstraint(columns={"sessionId"})
  * 		}
  * )
  * @ORM\Entity

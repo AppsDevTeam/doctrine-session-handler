@@ -12,10 +12,7 @@ class Handler implements \SessionHandlerInterface {
 
 	protected string $entityClass;
 
-	/**
-	 * @param EntityManagerInterface $em
-	 */
-	public function __construct($entityClass, EntityManagerInterface $em)
+	public function __construct(string $entityClass, EntityManagerInterface $em)
 	{
 		$this->entityClass = $entityClass;
 		$this->em = $em;
@@ -119,7 +116,6 @@ class Handler implements \SessionHandlerInterface {
 				->execute();
 		}
 
-
 		return TRUE;
 	}
 
@@ -131,12 +127,12 @@ class Handler implements \SessionHandlerInterface {
 	private function getSession($session_id)
 	{
 		return $this->em->createQueryBuilder()
-						->select("e")
-						->from($this->entityClass, "e")
-						->andWhere("e.sessionId = :id")
-						->setParameter('id', $session_id)
-						->getQuery()
-						->getOneOrNullResult();
+			->select("e")
+			->from($this->entityClass, "e")
+			->andWhere("e.sessionId = :id")
+			->setParameter('id', $session_id)
+			->getQuery()
+			->getOneOrNullResult();
 	}
 
 	private function getTableName(): string
