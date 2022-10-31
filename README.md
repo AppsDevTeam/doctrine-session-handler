@@ -4,8 +4,6 @@
 composer require adt/doctrine-session-handler
 ```
 
-Use `columns={<column_name>}` according to your naming strategy in `uniqueConstraints` definition.
-
 ```php
 <?php
 
