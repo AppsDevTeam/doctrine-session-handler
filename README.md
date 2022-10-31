@@ -17,9 +17,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table(
- *		uniqueConstraints={
- *			@ORM\UniqueConstraint(columns={"sessionId"})
- * 		}
+ *	uniqueConstraints={
+ *		@ORM\UniqueConstraint(fields={"sessionId"})
+ * 	}
  * )
  * @ORM\Entity
  */
