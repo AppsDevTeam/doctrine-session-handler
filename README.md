@@ -14,13 +14,9 @@ use ADT\DoctrineSessionHandler\SessionTrait;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * @ORM\Table(
- *	uniqueConstraints={
- *		@ORM\UniqueConstraint(fields={"sessionId"})
- * 	}
- * )
  * @ORM\Entity
  */
+#[ORM\Entity]
 class SessionStorage extends BaseEntity implements SessionInterface {
 
 	use SessionTrait;
@@ -28,11 +24,14 @@ class SessionStorage extends BaseEntity implements SessionInterface {
 	/**
 	 * @var integer
 	 *
-	 * @ORM\Column(name="id", type="integer", nullable=false)
 	 * @ORM\Id
-	 * @ORM\GeneratedValue(strategy="IDENTITY")
+	 * @ORM\Column(type="integer", nullable=false)
+	 * @ORM\GeneratedValue
 	 */
-	public $id;
+	#[ORM\Id]
+	#[ORM\Column(nullable: false)]
+	#[ORM\GeneratedValue]
+	public int $id;
 
 }
 ```
