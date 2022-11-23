@@ -7,19 +7,19 @@ use Doctrine\ORM\Mapping as ORM;
 trait SessionTrait
 {
 	/**
-	 * @ORM\Column(type="string", unique=true)
+	 * @ORM\Column(unique=true)
 	 */
 	#[ORM\Column(unique: true)]
 	public string $sessionId;
 
 	/**
-	 * @ORM\Column(type="datetime")
+	 * @ORM\Column
 	 */
 	#[ORM\Column]
 	public \DateTime $createdAt;
 
 	/**
-	 * @ORM\Column(type="datetime")
+	 * @ORM\Column
 	 */
 	#[ORM\Column]
 	public \DateTime $expiresAt;
