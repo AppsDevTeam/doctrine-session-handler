@@ -25,9 +25,9 @@ trait SessionTrait
 	public \DateTime $expiresAt;
 
 	/**
-	 * @ORM\Column(type="text", nullable=true)
+	 * @ORM\Column(type="text")
 	 */
-	#[ORM\Column(nullable: true)]
+	#[ORM\Column(type: 'text')]
 	public string $data;
 
 	public function getSessionId(): string
