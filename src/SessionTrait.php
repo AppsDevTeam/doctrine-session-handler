@@ -6,27 +6,15 @@ use Doctrine\ORM\Mapping as ORM;
 
 trait SessionTrait
 {
-	/**
-	 * @ORM\Column(unique=true)
-	 */
 	#[ORM\Column(unique: true)]
 	public string $sessionId;
 
-	/**
-	 * @ORM\Column
-	 */
 	#[ORM\Column]
 	public \DateTime $createdAt;
 
-	/**
-	 * @ORM\Column
-	 */
 	#[ORM\Column]
 	public \DateTime $expiresAt;
 
-	/**
-	 * @ORM\Column(type="text")
-	 */
 	#[ORM\Column(type: 'text')]
 	public string $data;
 
