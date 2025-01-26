@@ -102,7 +102,7 @@ class Handler implements \SessionHandlerInterface
 				->setParameter(1, (new \DateTime("+$expiration minutes")), Types::DATETIME_MUTABLE)
 				->setParameter(2, $id)
 				->setParameter(3, $data)
-				->execute();
+				->executeStatement();
 		} else {
 			$this->em->createQueryBuilder()
 				->update($this->entityClass, "e")
