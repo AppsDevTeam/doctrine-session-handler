@@ -88,10 +88,28 @@ class Handler implements \SessionHandlerInterface
 	/**
 	 * @inheritDoc
 	 */
+	/**
+	 * Expired sessions must not be readable.
+	 *
+	 * PHP does not enforce `session.gc_maxlifetime` on its own - with a custom save
+	 * handler the session stays valid for as long as its row exists. Without this
+	 * check the expiry would be enforced only by garbage collection, so how long an
+	 * expired session keeps working would depend on how often GC runs.
+	 *
+	 * The row itself is left in place; `write()` reuses it (as a fresh, empty session)
+	 * and garbage collection removes it later.
+	 *
+	 * @inheritDoc
+	 */
 	public function read(string $id): string|false
 	{
 		$session = $this->getSession($id);
-		return $session->data ?? "";
+
+		if ($session === null || $session->getExpiresAt() < new \DateTime()) {
+			return "";
+		}
+
+		return $session->getData();
 	}
 
 	/**
