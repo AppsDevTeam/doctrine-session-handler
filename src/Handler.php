@@ -105,7 +105,7 @@ class Handler implements \SessionHandlerInterface
 	{
 		$session = $this->getSession($id);
 
-		if ($session === null || $session->getExpiresAt() < new \DateTime()) {
+		if ($session === null || $session->getExpiresAt() < new \DateTimeImmutable()) {
 			return "";
 		}
 
