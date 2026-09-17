@@ -7,6 +7,9 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class Handler implements \SessionHandlerInterface
 {
+	/** Marks a base64 encoded (binary) payload, see encodeData() */
+	private const BINARY_PREFIX = 'b64:';
+
 	protected EntityManagerInterface $em;
 
 	protected string $entityClass;
@@ -109,7 +112,7 @@ class Handler implements \SessionHandlerInterface
 			return "";
 		}
 
-		return $session->getData();
+		return $this->decodeData($session->getData());
 	}
 
 	/**
@@ -118,6 +121,7 @@ class Handler implements \SessionHandlerInterface
 	public function write(string $id, string $data): bool
 	{
 		$session = $this->getSession($id);
+		$data = $this->encodeData($data);
 
 		$lifetime = ini_get("session.gc_maxlifetime");
 		$expiration = $lifetime ? ($lifetime / 60) : 15;
@@ -154,6 +158,39 @@ class Handler implements \SessionHandlerInterface
 		}
 
 		return TRUE;
+	}
+
+	/**
+	 * Session data are stored in a text column, but a session may legitimately hold
+	 * binary values (a WebAuthn challenge, a raw token). Those bytes are not valid
+	 * UTF-8, so MySQL either rejects the write (error 1366) or - without strict mode -
+	 * silently truncates it at the first invalid byte. A truncated blob cannot be
+	 * decoded, so from then on *every* request carrying that cookie dies with
+	 * "Failed to decode session object. Session has been destroyed" until the session
+	 * expires - the whole application, not just the feature that wrote the value.
+	 *
+	 * Binary payloads are therefore stored base64 encoded, marked with a prefix that
+	 * no session serializer can produce ("php" starts with a key followed by "|",
+	 * "php_serialize" with "a:"). Text payloads - the usual case - are left as they
+	 * are, so existing rows keep working and nothing grows by a third for nothing.
+	 */
+	private function encodeData(string $data): string
+	{
+		// preg_match instead of mb_check_encoding so the package does not depend on ext-mbstring
+		return preg_match('//u', $data) === 1
+			? $data
+			: self::BINARY_PREFIX . base64_encode($data);
+	}
+
+	private function decodeData(string $data): string
+	{
+		if (!str_starts_with($data, self::BINARY_PREFIX)) {
+			return $data;
+		}
+
+		// Broken base64 means the session cannot be decoded; an empty string turns it
+		// into a fresh empty session instead of a fatal error on every request.
+		return base64_decode(substr($data, strlen(self::BINARY_PREFIX)), true) ?: '';
 	}
 
 	/**
