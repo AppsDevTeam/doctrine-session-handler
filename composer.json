@@ -16,6 +16,9 @@
     "doctrine/orm": "^2.14 || ^3.0",
     "symfony/console": "^6.0 || ^7.0 || ^8.0"
   },
+  "suggest": {
+    "adt/doctrine-components": "^3.7.1 - adds the index on expiresAt declared on SessionTrait to the entity"
+  },
   "autoload": {
     "psr-4": {
       "ADT\\DoctrineSessionHandler\\": "src/"

@@ -4,6 +4,12 @@ namespace ADT\DoctrineSessionHandler;
 
 use Doctrine\ORM\Mapping as ORM;
 
+/**
+ * Cleaning up expired sessions filters by expiresAt; without the index it scans the whole table.
+ * Doctrine reads #[Index] only from the entity class - the index reaches the entity through
+ * TraitIndexListener from adt/doctrine-components (see README).
+ */
+#[ORM\Index(fields: ['expiresAt'])]
 trait SessionTrait
 {
 	#[ORM\Column(unique: true)]

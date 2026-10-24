@@ -47,19 +47,31 @@ session:
 
 ## Index on `expiresAt` (required)
 
-Add an index on the `expiresAt` column. Cleaning up expired sessions filters by it,
-and without the index it degrades into a full table scan over the whole (typically
-large) session table:
+Cleaning up expired sessions filters by `expiresAt`, and without an index it degrades
+into a full table scan over the whole (typically large) session table.
+
+`SessionTrait` declares the index, but Doctrine reads `#[Index]` only from the entity
+class and ignores it on traits. It reaches the entity through `TraitIndexListener` from
+[`adt/doctrine-components`](https://github.com/AppsDevTeam/doctrine-components) (3.7.1+),
+registered via its extension:
+
+```neon
+extensions:
+	doctrineComponents: ADT\DoctrineComponents\DI\DoctrineComponentsExtension
+```
+
+`adt/fancyadmin` registers the listener itself when the extension is missing.
+
+Without the listener, declare the index on your entity:
 
 ```php
-#[ORM\Table(name: 'session_storage')]
-#[ORM\Index(columns: ['expires_at'])]
+#[ORM\Index(fields: ['expiresAt'])]
 #[ORM\Entity]
 class SessionStorage extends BaseEntity implements SessionInterface
 ```
 
-An index cannot be declared in a trait (it is a class-level attribute), so it has to
-be added to your entity.
+An index the entity declares on the same column takes precedence over the trait's one,
+whatever its name.
 
 ## Cleaning up expired sessions
 
