@@ -5,7 +5,19 @@ namespace ADT\DoctrineSessionHandler;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 
-class Handler implements \SessionHandlerInterface
+/**
+ * Session handler storing sessions in a Doctrine entity.
+ *
+ * Implements SessionUpdateTimestampHandlerInterface, so with `session.lazy_write` (PHP default)
+ * an unchanged session is not written on every request: updateTimestamp() only moves the
+ * expiration, and at most once per $refreshInterval seconds. A write on every request is
+ * expensive (on a Galera cluster each one is replicated to all nodes) and most requests do
+ * not change the session at all.
+ *
+ * The session row loaded by validateId()/read() is remembered for the request, so the check,
+ * the read and the write need a single SELECT.
+ */
+class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandlerInterface
 {
 	/** Marks a base64 encoded (binary) payload, see encodeData() */
 	private const BINARY_PREFIX = 'b64:';
@@ -20,15 +32,23 @@ class Handler implements \SessionHandlerInterface
 
 	private ?SessionCleaner $cleaner = null;
 
+	/** @var array<string, SessionInterface|null> session ID => its row (null = no row), loaded in this request */
+	private array $sessions = [];
+
+	/** @var array<string, \DateTimeInterface|null> session ID => expiration stored in its row (null = no row) */
+	private array $loaded = [];
+
 	/**
 	 * @param int $gcBatchSize how many sessions inline GC deletes in one batch
 	 * @param int|null $gcMaxBatches batch limit for inline GC (null = unlimited)
+	 * @param int $refreshInterval seconds - an unchanged session moves its expiration only when it would move by at least this much
 	 */
 	public function __construct(
 		string $entityClass,
 		EntityManagerInterface $em,
 		int $gcBatchSize = SessionCleaner::DEFAULT_BATCH_SIZE,
-		?int $gcMaxBatches = 1
+		?int $gcMaxBatches = 1,
+		protected int $refreshInterval = 60,
 	) {
 		$this->entityClass = $entityClass;
 		$this->em = $em;
@@ -49,6 +69,7 @@ class Handler implements \SessionHandlerInterface
 	 */
 	public function destroy(string $id): bool
 	{
+		unset($this->loaded[$id], $this->sessions[$id]);
 		if ($this->getSession($id) !== null) {
 			$this->em->createQueryBuilder()
 				->delete($this->entityClass, "e")
@@ -106,7 +127,7 @@ class Handler implements \SessionHandlerInterface
 	 */
 	public function read(string $id): string|false
 	{
-		$session = $this->getSession($id);
+		$session = $this->loadSession($id);
 
 		if ($session === null || $session->getExpiresAt() < new \DateTimeImmutable()) {
 			return "";
@@ -120,13 +141,12 @@ class Handler implements \SessionHandlerInterface
 	 */
 	public function write(string $id, string $data): bool
 	{
-		$session = $this->getSession($id);
+		$exists = array_key_exists($id, $this->loaded) ? $this->loaded[$id] !== null : $this->getSession($id) !== null;
 		$data = $this->encodeData($data);
 
-		$lifetime = ini_get("session.gc_maxlifetime");
-		$expiration = $lifetime ? ($lifetime / 60) : 15;
+		$expiration = $this->getLifetimeMinutes();
 
-		if (!$session) {
+		if (!$exists) {
 			$metadata = $this->em->getClassMetadata($this->entityClass);
 
 			$this->em->getConnection()->createQueryBuilder()
@@ -156,8 +176,72 @@ class Handler implements \SessionHandlerInterface
 				->getQuery()
 				->execute();
 		}
+		$this->loaded[$id] = new \DateTime("+$expiration minutes");
 
 		return TRUE;
+	}
+
+	/**
+	 * With strict mode PHP asks before read() whether the ID belongs to an existing session;
+	 * an unknown or expired one is replaced by a new ID (protection against session fixation).
+	 */
+	public function validateId(string $id): bool
+	{
+		$session = $this->loadSession($id);
+
+		return $session !== null && $session->getExpiresAt() >= new \DateTimeImmutable();
+	}
+
+	/**
+	 * Called instead of write() when the session data did not change. Only the expiration
+	 * moves, and only when it would move by at least $refreshInterval - otherwise nothing
+	 * is written. A session without a row (nothing was ever stored in it) gets none.
+	 */
+	public function updateTimestamp(string $id, string $data): bool
+	{
+		if (!array_key_exists($id, $this->loaded)) {
+			return $this->write($id, $data);
+		}
+		$expiresAt = $this->loaded[$id];
+		if ($expiresAt === null) {
+			return TRUE;
+		}
+
+		$expiration = $this->getLifetimeMinutes();
+		$newExpiresAt = new \DateTime("+$expiration minutes");
+		if ($newExpiresAt->getTimestamp() - $expiresAt->getTimestamp() < $this->refreshInterval) {
+			return TRUE;
+		}
+
+		$this->em->createQueryBuilder()
+			->update($this->entityClass, "e")
+			->set("e.expiresAt", ':expiresAt')
+			->where("e.sessionId = :sessionId")
+			->setParameter('expiresAt', $newExpiresAt)
+			->setParameter("sessionId", $id)
+			->getQuery()
+			->execute();
+		$this->loaded[$id] = $newExpiresAt;
+
+		return TRUE;
+	}
+
+	private function getLifetimeMinutes(): float|int
+	{
+		$lifetime = ini_get("session.gc_maxlifetime");
+
+		return $lifetime ? ($lifetime / 60) : 15;
+	}
+
+	/** The session row, loaded once per request (validateId, read and write share it) */
+	private function loadSession(string $id): ?SessionInterface
+	{
+		if (!array_key_exists($id, $this->sessions)) {
+			$this->sessions[$id] = $this->getSession($id);
+			$this->loaded[$id] = $this->sessions[$id]?->getExpiresAt();
+		}
+
+		return $this->sessions[$id];
 	}
 
 	/**

@@ -45,6 +45,23 @@ session:
 	handler: @sessionHandler
 ```
 
+## Unchanged sessions are not written
+
+`Handler` implements `SessionUpdateTimestampHandlerInterface`. With `session.lazy_write`
+(PHP default) PHP calls `updateTimestamp()` instead of `write()` when a request did not change
+the session, and the handler then only moves `expiresAt` - and only once it would move by at
+least `refreshInterval` seconds (default 60). Most requests (AJAX, polling) therefore write
+nothing; a write on every request is expensive, on a Galera cluster each one is replicated to
+all nodes. A session that never stored anything gets no row at all.
+
+The row is loaded once per request and shared by `validateId()` (strict mode), `read()` and
+`write()`. An expired session is rejected by `validateId()`, so PHP gives the client a new ID.
+
+```neon
+services:
+	sessionHandler: ADT\DoctrineSessionHandler\Handler(\App\Entity\SessionStorage, refreshInterval: 60)
+```
+
 ## Index on `expiresAt` (required)
 
 Cleaning up expired sessions filters by `expiresAt`, and without an index it degrades
@@ -125,3 +142,10 @@ Sessions are created for every visitor without a cookie (including bots), so als
 consider a short `session.expiration` and avoid touching the session on requests
 that do not need it — anything writing to the session (flash messages,
 `storeRequest()`, CSRF tokens) creates a row.
+
+## Tests
+
+```
+composer install
+composer test
+```
