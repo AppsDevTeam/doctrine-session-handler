@@ -2,6 +2,8 @@
 
 namespace ADT\DoctrineSessionHandler;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -147,34 +149,9 @@ class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandle
 		$expiration = $this->getLifetimeMinutes();
 
 		if (!$exists) {
-			$metadata = $this->em->getClassMetadata($this->entityClass);
-
-			$this->em->getConnection()->createQueryBuilder()
-				->insert($this->getTableName(), "e")
-				->values(
-					[
-						$metadata->getColumnName('createdAt') => '?',
-						$metadata->getColumnName('expiresAt') => '?',
-						$metadata->getColumnName('sessionId') => '?',
-						$metadata->getColumnName('data') => '?'
-					]
-				)
-				->setParameter(0, (new \DateTime()), Types::DATETIME_MUTABLE)
-				->setParameter(1, (new \DateTime("+$expiration minutes")), Types::DATETIME_MUTABLE)
-				->setParameter(2, $id)
-				->setParameter(3, $data)
-				->executeStatement();
+			$this->insertSession($id, $data, $expiration);
 		} else {
-			$this->em->createQueryBuilder()
-				->update($this->entityClass, "e")
-				->set("e.expiresAt", '?1')
-				->set("e.data", '?2')
-				->where("e.sessionId = :sessionId")
-				->setParameter(1, new \DateTime("+$expiration minutes"))
-				->setParameter(2, $data)
-				->setParameter("sessionId", $id)
-				->getQuery()
-				->execute();
+			$this->updateSession($id, $data, $expiration);
 		}
 		$this->loaded[$id] = new \DateTime("+$expiration minutes");
 
@@ -224,6 +201,75 @@ class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandle
 		$this->loaded[$id] = $newExpiresAt;
 
 		return TRUE;
+	}
+
+	/**
+	 * The handler does not lock the session (unlike PHP's files handler), so another request
+	 * with the same cookie (tabs restored at once, AJAX) may have inserted the row since this
+	 * request found none. The row is then overwritten - "last write wins", the same as two
+	 * parallel requests of an existing session; createdAt stays.
+	 *
+	 * MySQL/MariaDB do it atomically in one statement. Other platforms insert and on the
+	 * duplicate fall back to an update (on PostgreSQL that aborts a surrounding transaction,
+	 * the session is however written at the end of the request, outside of one).
+	 */
+	private function insertSession(string $id, string $data, float|int $expiration): void
+	{
+		$connection = $this->em->getConnection();
+		$metadata = $this->em->getClassMetadata($this->entityClass);
+		$createdAtColumn = $metadata->getColumnName('createdAt');
+		$expiresAtColumn = $metadata->getColumnName('expiresAt');
+		$sessionIdColumn = $metadata->getColumnName('sessionId');
+		$dataColumn = $metadata->getColumnName('data');
+		$expiresAt = new \DateTime("+$expiration minutes");
+
+		if ($connection->getDatabasePlatform() instanceof AbstractMySQLPlatform) {
+			// parameters instead of VALUES(column) - deprecated since MySQL 8.0.20, and MariaDB
+			// does not support the row alias that replaces it
+			$connection->executeStatement(
+				"INSERT INTO {$this->getTableName()} ($createdAtColumn, $expiresAtColumn, $sessionIdColumn, $dataColumn)"
+				. " VALUES (?, ?, ?, ?)"
+				. " ON DUPLICATE KEY UPDATE $expiresAtColumn = ?, $dataColumn = ?",
+				[new \DateTime(), $expiresAt, $id, $data, $expiresAt, $data],
+				[Types::DATETIME_MUTABLE, Types::DATETIME_MUTABLE, Types::STRING, Types::TEXT, Types::DATETIME_MUTABLE, Types::TEXT]
+			);
+
+			return;
+		}
+
+		try {
+			$connection->createQueryBuilder()
+				->insert($this->getTableName(), "e")
+				->values(
+					[
+						$createdAtColumn => '?',
+						$expiresAtColumn => '?',
+						$sessionIdColumn => '?',
+						$dataColumn => '?'
+					]
+				)
+				->setParameter(0, (new \DateTime()), Types::DATETIME_MUTABLE)
+				->setParameter(1, $expiresAt, Types::DATETIME_MUTABLE)
+				->setParameter(2, $id)
+				->setParameter(3, $data)
+				->executeStatement();
+		} catch (UniqueConstraintViolationException) {
+			$this->updateSession($id, $data, $expiration);
+		}
+	}
+
+	private function updateSession(string $id, string $data, float|int $expiration): void
+	{
+		$this->em->createQueryBuilder()
+			->update($this->entityClass, "e")
+			->set("e.expiresAt", '?1')
+			->set("e.data", '?2')
+			->where("e.sessionId = :sessionId")
+			->setParameter(1, new \DateTime("+$expiration minutes"))
+			->setParameter(2, $data)
+			->setParameter("sessionId", $id)
+			->getQuery()
+			->execute();
 	}
 
 	private function getLifetimeMinutes(): float|int
