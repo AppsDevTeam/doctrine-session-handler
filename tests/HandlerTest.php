@@ -123,6 +123,36 @@ final class HandlerTest extends TestCase
 		$this->assertSame('user|i:2;', $this->request()->read(self::ID));
 	}
 
+	/**
+	 * The session is closed and opened again in one request (Session::close(), then autoStart).
+	 * With strict mode PHP asks validateId() again - the row written meanwhile must count,
+	 * otherwise PHP replaces the ID and the session data are lost.
+	 */
+	public function testNewSessionIsValidAfterWriteInTheSameRequest(): void
+	{
+		$handler = $this->request();
+		$this->assertFalse($handler->validateId(self::ID));
+		$handler->read(self::ID);
+		$handler->write(self::ID, 'user|i:1;');
+
+		$this->assertTrue($handler->validateId(self::ID));
+		$this->assertSame('user|i:1;', $handler->read(self::ID));
+	}
+
+	/** Reopened in the same request, an existing session reads what was written, not the data loaded at the start */
+	public function testReopenedSessionReadsWhatWasWritten(): void
+	{
+		$this->request()->write(self::ID, 'user|i:1;');
+
+		$handler = $this->request();
+		$this->assertTrue($handler->validateId(self::ID));
+		$this->assertSame('user|i:1;', $handler->read(self::ID));
+		$handler->write(self::ID, 'user|i:2;');
+
+		$this->assertTrue($handler->validateId(self::ID));
+		$this->assertSame('user|i:2;', $handler->read(self::ID));
+	}
+
 	public function testDestroyRemovesTheSession(): void
 	{
 		$this->request()->write(self::ID, 'user|i:1;');

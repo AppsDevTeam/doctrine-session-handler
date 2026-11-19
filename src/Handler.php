@@ -6,6 +6,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query;
 
 /**
  * Session handler storing sessions in a Doctrine entity.
@@ -154,6 +155,9 @@ class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandle
 			$this->updateSession($id, $data, $expiration);
 		}
 		$this->loaded[$id] = new \DateTime("+$expiration minutes");
+		// the remembered row is stale now (none, or the data before this write) - when the session
+		// is closed and opened again in this request, validateId() and read() load it anew
+		unset($this->sessions[$id]);
 
 		return TRUE;
 	}
@@ -324,6 +328,9 @@ class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandle
 	}
 
 	/**
+	 * Refreshes an already managed entity: rows are written by DBAL/DQL past the entity, so the
+	 * EntityManager would otherwise return the data loaded at the start of the request.
+	 *
 	 * @throws \Doctrine\ORM\NonUniqueResultException
 	 */
 	protected function getSession(string $id): ?SessionInterface
@@ -334,6 +341,7 @@ class Handler implements \SessionHandlerInterface, \SessionUpdateTimestampHandle
 			->andWhere("e.sessionId = :id")
 			->setParameter('id', $id)
 			->getQuery()
+			->setHint(Query::HINT_REFRESH, true)
 			->getOneOrNullResult();
 	}
 
