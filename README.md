@@ -149,3 +149,14 @@ that do not need it — anything writing to the session (flash messages,
 composer install
 composer test
 ```
+
+The tests run on in-memory SQLite. Set `DATABASE_URL` to run them on another database,
+for example MySQL or MariaDB, which use their own atomic `INSERT … ON DUPLICATE KEY UPDATE`
+when a session is created:
+
+```
+DATABASE_URL='mysql://root:secret@127.0.0.1/session_test?serverVersion=8.0' composer test
+```
+
+Point it at a throwaway database only: each test drops and recreates the schema, so the
+`session_storage` table in it is deleted.
